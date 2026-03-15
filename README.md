@@ -89,6 +89,8 @@ REDIS_URL=redis://:your_redis_password@redis:6379/0
 | `DB_USER` | `claude2api` | PostgreSQL 用户名 |
 | `DB_PASS` | — | PostgreSQL 密码 |
 | `DB_NAME` | `claude2api` | PostgreSQL 数据库名 |
+| `DB_SSLMODE` | `disable` | PostgreSQL SSL 模式：`disable`（本地/VPS）\| `require`（Neon/Supabase 等托管数据库）|
+| `DATABASE_URL` | — | 完整 PostgreSQL DSN，优先级高于所有 `DB_*` 变量（推荐 Neon/Supabase 使用）|
 | `PROXY_HOST` | — | 住宅代理主机（留空则直连 claude.ai）|
 | `PROXY_PORT` | `3010` | 代理端口 |
 | `PROXY_USER` | — | 代理认证用户名 |
@@ -115,18 +117,46 @@ DB_PORT=5432
 DB_USER=claude2api
 DB_PASS=your_strong_password
 DB_NAME=claude2api
+# DB_SSLMODE 默认 disable，本地容器无需修改
 ```
 
-如需连接外部 PostgreSQL（托管云数据库等），将 `DB_HOST` 改为对应 IP 或域名，`DB_PORT` 改为实际端口，并删除 `docker-compose.yml` 中的 `postgres` 服务和 `depends_on` 相关配置。
+### 连接外部 PostgreSQL（VPS / 自建）
+
+将 `DB_HOST` 改为对应 IP 或域名，并删除 `docker-compose.yml` 中的 `postgres` 服务和 `depends_on` 相关配置：
 
 ```env
-# 示例：外部托管数据库
 DB_HOST=db.example.com
-DB_PORT=5433
+DB_PORT=5432
 DB_USER=claude2api
 DB_PASS=your_strong_password
 DB_NAME=claude2api
+DB_SSLMODE=disable  # 本地网络/VPS 通常不需要 SSL
 ```
+
+### 连接托管 PostgreSQL（Neon / Supabase / Railway 等）
+
+这类平台强制要求 TLS 连接。推荐直接使用平台提供的完整连接串（`DATABASE_URL`）：
+
+```env
+# Neon
+DATABASE_URL=postgres://user:pass@ep-xxx-yyy.us-east-2.aws.neon.tech/dbname?sslmode=require
+
+# Supabase
+DATABASE_URL=postgres://postgres:pass@db.xxxxxxxx.supabase.co:5432/postgres?sslmode=require
+```
+
+或者分字段配置（效果相同）：
+
+```env
+DB_HOST=ep-xxx-yyy.us-east-2.aws.neon.tech
+DB_PORT=5432
+DB_USER=your_neon_user
+DB_PASS=your_neon_password
+DB_NAME=your_db_name
+DB_SSLMODE=require   # ← 关键：托管数据库必须设置
+```
+
+> **注意**：使用托管数据库时，需删除 `docker-compose.yml` 中的 `postgres` 服务及 `claude2api` 下的 `depends_on.postgres` 配置。
 
 ---
 
@@ -259,6 +289,25 @@ docker compose up -d
 ---
 
 ## 更新日志
+
+### v0.8.0 — 2026-03-15
+**支持托管 PostgreSQL（Neon / Supabase / Railway 等强制 TLS 连接）**
+
+后端：
+- `database/db.go`：`New()` 函数不再硬编码 `sslmode=disable`，改为接收 `sslmode` 参数；新增 `databaseURL` 参数，支持直接传入完整 DSN，优先级高于所有分字段配置
+- `config/config.go`：新增 `DBSSLMode`（读取 `DB_SSLMODE` 环境变量，默认 `disable`）和 `DatabaseURL`（读取 `DATABASE_URL` 环境变量）两个配置字段
+- `main.go`：新增 `--db-sslmode` 和 `--database-url` CLI 参数
+
+新增环境变量：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `DB_SSLMODE` | `disable` | PostgreSQL SSL 模式，本地无需修改；Neon/Supabase 填 `require` |
+| `DATABASE_URL` | — | 完整 DSN，优先于所有 `DB_*` 字段（推荐 Neon/Supabase 使用）|
+
+**`docker-compose.yml` 无需修改**（新变量默认值向下兼容），仅需在 `.env` 中按需添加。
+
+---
 
 ### v0.7.0 — 2026-03-11
 **新增 SOCKS5/SOCKS4 代理支持 + SOCKS 错误自动重试**
