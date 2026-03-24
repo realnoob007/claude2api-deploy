@@ -291,7 +291,7 @@ docker compose up -d
 ## 更新日志
 
 ### v0.9.0 — 2026-03-24
-**账号健康检测 + HeroSMS 自动化注册优化**
+**账号健康检测**
 
 管理面板：
 - 新增单账号测活接口 `POST /api/accounts/test`：对指定账号发起真实 Claude.ai 探测请求，自动标记失效账号为封禁状态
@@ -303,12 +303,6 @@ docker compose up -d
 - `handler/admin.go`：新增测活路由及并发检测逻辑
 - `database/db.go` / `database/mem.go`：新增测活状态写入支持
 - `config/config.go`：相关配置字段补全
-
-自动化脚本（automator）：
-- HeroSMS 接入 `getNumberV2` API，获取更丰富的号码信息并支持 `phoneException` 排除
-- 自动将被 Claude 拒绝的号码前缀加入黑名单（`herosms_blocked_prefixes.txt`），启动时自动加载
-- `MAX_CLAUDE_REJECTS` 从 2 提升至 5，`CLAUDE_REJECT_WAIT` 从 10s 缩短至 5s
-- 新增 `scan_blocked_prefixes.py`：探测哪些 US 号码前缀被 Claude 封锁，快速取消无需等待 SMS
 
 ---
 
